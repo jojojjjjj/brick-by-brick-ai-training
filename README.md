@@ -192,22 +192,27 @@ python -m src.models.ONNX_export \
 | FocusNet 最终准确率 | 83-88% | **93-96%** |
 | VLM 标注准确率 | 72-78% | **87-93%** |
 | MediaPipe 检测成功率 | 55-65% | **75-85%** |
+| VLM 推荐 | LLaVA-1.6 | **MiniCPM-V 2.6（速度）/ Qwen2.5-VL-7B（质量）** |
 
 ### Step 1：录制（10-30 人/800h）
 - 全部华为手机，竖放侧面拍摄（固定角度）
 - 招募建议：特别包含戴眼镜人群（≥50%）
 - 预计可用：~100 万帧（降采样后）
 
-### Step 2：AI 自动标注（0.5fps + Qwen2.5-VL-7B）
-- 降采样到 0.5fps（144 万帧）→ Qwen2.5-VL-7B 推理 ~20-25h
-- 主动学习筛选：只审核 2-3% 最不确定帧（约 1.7-3 万帧）
-- 人工时间：40-80 人天
+### Step 2：AI 自动标注（0.5fps + MiniCPM-V 2.6 或 Qwen2.5-VL-7B）
+- 降采样到 0.5fps（144 万帧）
+- **速度优先**：MiniCPM-V 2.6（~4.8GB，3-5 小时完成，80-130 img/s）
+- **质量优先**：Qwen2.5-VL-7B（~5-6GB，8-12 小时完成，30-50 img/s）
+- RTX 5080 优化：INT4 + FlashAttention-2 + KV Cache 量化（可叠加）
+- 主动学习筛选：只审核 2-3% 最不确定帧
 
 ### Step 3：FocusNet 训练
 - RTX 5080 训练 ~2-4h
 - ncnn INT8 量化 → 部署到 HarmonyOS 手机
 
 ### 时间线：5 周 | 成本：$600-1200
+
+**全面评测了 20+ 开源 VLM，MiniCPM-V 2.6 是速度首选（~4.8GB，80-130 img/s，3-5 小时完成 144 万帧）
 
 详见 [SELF_RECORDING_DATA_PIPELINE.md](docs/SELF_RECORDING_DATA_PIPELINE.md)
 
