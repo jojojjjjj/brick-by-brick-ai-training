@@ -1,45 +1,95 @@
 # Brick by Brick · AI Focus Detection Training System
 
-> AI 专注度检测模型训练系统 | 独立于主项目维护  
-> 最终与 [brick-by-brick](https://github.com/jojojjjjj/brick-by-brick) 主项目融合
+> AI 专注度检测模型训练系统 | **移动端纯视觉方案**  
+> 独立于主项目维护 | 最终与 [brick-by-brick](https://github.com/jojojjjjj/brick-by-brick) 主项目融合
 
-## 项目概述
+## ⚠️ 重要说明
 
-一砖一瓦 (Brick by Brick) 专注度检测模型训练系统。通过前置摄像头实时检测用户专注度，输出 0-100 专注度分数，驱动虚拟建筑状态变化。
+**这是手机端纯视觉方案。**
 
-## 核心能力
+- ❌ 无键盘鼠标日志
+- ❌ 无 PC 端推理
+- ✅ 只有前置摄像头 + MediaPipe Face Mesh
+- ✅ 推理在手机本地完成（ncnn + HarmonyOS NPU）
+- ✅ RTX 5080 用于**训练**（开发机），模型部署在**手机端**
 
-- **输入**：前置摄像头视频帧（5fps）+ 键盘鼠标活动日志 + 场景 ID
-- **输出**：每 5 秒一个 0-100 专注度分数
-- **场景支持**：写代码 / 阅读 / 看视频（统一模型 + 场景 embedding）
-- **跨平台部署**：华为 NPU / 苹果 ANE / 英特尔 NPU / 高通 Hexagon
+---
 
-## 硬件要求
+## 核心约束
 
-- **训练**：RTX 5080（16GB GDDR7，Blackwell）— 严重过剩
-- **推荐训练规模**：1-10M 参数模型，30 分钟内完成训练
-- **推理**：PC (< 20ms) / 手机 (< 80ms)
+| 约束 | 说明 |
+|------|------|
+| **平台** | HarmonyOS NEXT 手机应用 |
+| **输入** | 前置摄像头视频帧（5fps） |
+| **输出** | 每 5 秒一个 0-100 专注度分数 |
+| **推理** | 手机本地（ncnn INT8，不上传云端） |
+| **训练** | RTX 5080（开发机），FP16 混合精度 |
+| **团队** | 3 人，无法人工标注 1000+ 样本 |
+
+---
+
+## 产品背景
+
+一砖一瓦 (Brick by Brick) 是 HarmonyOS 番茄钟应用。通过前置摄像头实时检测用户专注度，在虚拟城市中建造建筑——专注质量越高，建筑越精美；分心则建筑破损。
+
+- **CH3 AI 专注检测系统**（Handbook）：https://github.com/jojojjjjj/brickbybrick-handbook
+- **产品手册**：https://jojojjjjj.github.io/brickbybrick-handbook
+
+---
 
 ## 项目结构
 
 ```
 brick-by-brick-ai-training/
 ├── docs/
-│   ├── AI_TRAINING_SYSTEM_GUIDE.md   # 完整训练系统指导（本文档详细版）
-│   └── FOCUS_DETECTION_FEASIBILITY_REPORT.md  # 可行性论证报告
+│   ├── AI_TRAINING_SYSTEM_GUIDE.md   # Codex 训练系统指导
+│   └── FOCUS_DETECTION_FEASIBILITY_REPORT.md  # 本报告
 ├── src/
-│   ├── data/                        # 数据采集与处理
-│   ├── models/                      # 模型定义
-│   ├── training/                    # 训练脚本
-│   ├── annotation/                  # 自动标注流水线
-│   └── deployment/                  # 跨 NPU 部署
-├── configs/                         # 配置文件
-├── scripts/                        # 工具脚本
-├── data/                           # 训练数据（gitignore）
-├── checkpoints/                    # 模型权重（gitignore）
+│   ├── data/
+│   │   ├── video_processor.py      # FFmpeg 抽帧（手机录制视频）
+│   │   ├── face_extractor.py        # MediaPipe Face Mesh（手机端核心）
+│   │   └── label_fusion.py          # 多信号融合 + HMM 时序平滑
+│   ├── models/
+│   │   ├── backbone.py              # MobileNetV3 backbone
+│   │   ├── focus_head.py             # 专注度输出头（YOLOv5n/MobileFaceNet）
+│   │   └── ONNX_export.py           # ONNX 导出（PyTorch → ONNX）
+│   ├── training/
+│   │   ├── dataset.py               # FocusDataset（手机自拍数据）
+│   │   ├── trainer.py               # FP16 混合精度训练
+│   │   ├── active_learning.py        # 主动学习（MediaPipe 自动标注）
+│   │   └── quantize.py              # ncnn INT8 量化
+│   ├── annotation/
+│   │   └── auto_labeler.py         # 自动标注流水线
+│   └── deployment/
+│       ├── base.py                  # 统一推理接口
+│       └── ncnn_export.py           # ONNX → ncnn 转换
+├── configs/
+│   └── training.yaml
+├── scripts/
+│   └── adb_record.py                # adb 手机视频录制
+├── data/                            # 训练数据（gitignore）
+├── checkpoints/                     # 模型权重（gitignore）
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## 推理链路
+
+```
+RTX 5080 训练（FP16）
+    ↓ PyTorch .pth
+ONNX 导出
+    ↓
+ONNX 模型（跨平台）
+    ↓ ncnn 量化工具
+ncnn INT8 模型（手机端）
+    ↓ NAPI C++ 封装
+HarmonyOS NEXT 手机
+```
+
+---
 
 ## 快速开始
 
@@ -50,26 +100,26 @@ conda create -n focus-ai python=3.10 -y
 conda activate focus-ai
 
 # PyTorch + CUDA 12.1
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # 核心依赖
-pip install mediapipe mmaction2 onnxruntime-gpu opencv-python
-pip install onnx pyyaml pandas numpy pillow
-pip install label-studio-sdk yt-dlp
+pip install mediapipe onnxruntime-gpu opencv-python
+pip install pyyaml pandas numpy pillow
 pip install tqdm scipy hmmlearn filterpy
 
-# 开发依赖
-pip install jupyter pytest black flake8
+# ncnn 工具（用于量化）
+# https://github.com/Tencent/ncnn/releases
 ```
 
-### 2. 数据采集
+### 2. 手机视频采集
 
 ```bash
-# 自我录制（视频 + 屏幕 + 键鼠同步）
-python scripts/record_self.py --output data/session_001 --duration 3600
+# 使用 adb 录制手机前置摄像头
+adb shell screenrecord --time-limit 3600 /sdcard/focus_data.mp4
+adb pull /sdcard/focus_data.mp4 ./
 
-# YouTube 学习视频下载
-python scripts/download_youtube.py --url "https://youtube.com/watch?v=..." --output data/youtube/
+# 或使用 Python 脚本（需手机开启 USB 调试）
+python scripts/adb_record.py --output data/session_001 --duration 3600
 ```
 
 ### 3. 自动标注
@@ -90,57 +140,56 @@ python -m src.training.trainer \
     --output checkpoints/
 ```
 
-### 5. ONNX 导出
+### 5. ONNX 导出 → ncnn 量化 → HarmonyOS 部署
 
 ```bash
+# Step 1: PyTorch → ONNX
 python -m src.models.ONNX_export \
-    --checkpoint checkpoints/focus_model_best.pth \
+    --checkpoint checkpoints/focus_model.pth \
     --output models/focus_model.onnx
+
+# Step 2: ONNX → ncnn（使用 ncnn 官方工具）
+# 下载 ncnn: https://github.com/Tencent/ncnn/releases
+# ./ncnnoptimize focus_model.onnx focus_model.param focus_model.bin
+
+# Step 3: ncnn INT8 量化
+# ./ncnnquantize focus_model.param focus_model.bin \
+#              focus_model_int8.param focus_model_int8.bin
 ```
 
-### 6. 跨 NPU 推理
+---
 
-```python
-from src.deployment.onnx_inference import ONNXFocusDetector
+## 准确率目标
 
-detector = ONNXFocusDetector("models/focus_model.onnx", providers=["CUDAExecutionProvider"])
-scores = detector.detect(frames, gaze_pose, scene_id=0)  # 0=写代码
-print(f"专注度: {scores}")
-```
+| 阶段 | 准确率 | 数据量 | 方法 |
+|------|--------|--------|------|
+| P0 MVP | 60-70% | 500 张 | MediaPipe 直接用 |
+| P1 | 75-85% | 2000 张 | YOLOv5n 自训练 |
+| P2 | 85-93% | 5000+ 张 | MobileFaceNet + 个人校准 |
 
-## 模型架构
-
-**MobileNetV3-Small + 2层 GRU + 场景 Embedding**
-
-- 参数量：~1.5M
-- 输入：视频帧 (T×3×224×224) + gaze/pose (T×7) + 场景 ID
-- 输出：T×0-100 专注度分数
-- 训练策略：预训练（CASIA-WebFace）+ Fine-tuning
-
-详见 [AI_TRAINING_SYSTEM_GUIDE.md](docs/AI_TRAINING_SYSTEM_GUIDE.md)
+---
 
 ## 三阶段路线图
 
-| 阶段 | 时间 | 目标 | 准确率 |
+| 阶段 | 时间 | 技术 | 准确率 |
 |------|------|------|--------|
-| MVP | 1-2 周 | MediaPipe + 规则评分 | 60-70% |
-| V1 | 2-4 周 | MobileNetV3 + GRU + 自动标注 | 85-90% |
-| V2 | 持续 | EfficientNet + Transformer | 90-95% |
+| P0 MVP | 1-2 周 | MediaPipe Face Mesh（不开训练） | 60-70% |
+| P1 训练版 | 2-4 周 | YOLOv5n 自训练 + RTX 5080 | 75-85% |
+| P2 精调版 | 持续 | MobileFaceNet + 个人校准 | 85-93% |
 
-## 与主项目融合
-
-| 主项目阶段 | AI 训练项目状态 | 接入方式 |
-|-----------|---------------|---------|
-| MVP P0 | 独立验证 | MockFocusDetector |
-| MVP P1 | 独立 GitHub | NCNN/MediaPipe 接入 |
-| 正式版 | 集成 | ArkGraphics 3D + 真实专注度 |
+---
 
 ## 关键文档
 
-- [可行性论证报告](docs/FOCUS_DETECTION_FEASIBILITY_REPORT.md) — 详细技术论证
+- [可行性论证报告](docs/FOCUS_DETECTION_FEASIBILITY_REPORT.md) — 详细技术论证（移动端版）
 - [训练系统指导](docs/AI_TRAINING_SYSTEM_GUIDE.md) — Codex 可执行的完整代码指南
 
-## 团队
+---
 
-- 3 人小团队
-- 核心约束：无法人工标注 1000+ 样本，必须 AI 辅助 + 主动学习
+## 与主项目融合
+
+| 主项目阶段 | AI 训练项目 | 接入方式 |
+|-----------|------------|---------|
+| MVP P0 | 不需要 | MediaPipe ArkTS bindings 直接用 |
+| MVP P1 | 独立训练 | ncnn 模型通过 NAPI 接入 |
+| 正式版 | 集成 | ArkGraphics 3D + 真实专注度检测 |
