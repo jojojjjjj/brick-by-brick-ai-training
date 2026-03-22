@@ -181,6 +181,38 @@ python -m src.models.ONNX_export \
 
 ---
 
+## 核心方案：三步走
+
+### Step 1：录制（10 人/800h）
+- 10 人录制自己学习时的前置摄像头视频
+- 非正脸角度完全可以用于训练（置信度过滤后 ~40% 可用）
+- 预计可用：~324 小时，~580 万帧
+
+### Step 2：AI 自动标注（0.5fps + LLaVA-1.6-7B）
+- 降采样到 0.5fps（14.4 万帧）→ VLM 批量推理 ~18-24h
+- VLM 准确率 ~72-78%，边界案例用 MediaPipe + HMM 辅助
+- 人工审核：~2.9 万帧（主动学习筛选后 ~5000 帧）
+
+### Step 3：FocusNet 训练
+- 用标注数据训练专注度检测模型
+- RTX 5080 训练 ~30 分钟
+- ncnn INT8 量化 → 部署到 HarmonyOS 手机
+
+### 时间线：4 周
+- Week 1：环境搭建 + 10h 测试数据验证 AI 准确率
+- Week 2：全量数据处理（VLM 推理）
+- Week 3：人工抽检 + FocusNet 训练
+- Week 4：ONNX 导出 + ncnn 量化 + HarmonyOS 封装
+
+### 成本：~$850
+- 电费：$0.80
+- 人工标注（主动学习策略）：~$840
+- GPU：本地 RTX 5080
+
+详见 [SELF_RECORDING_DATA_PIPELINE.md](docs/SELF_RECORDING_DATA_PIPELINE.md)
+
+---
+
 ## ⚠️ 重要：数据法律风险
 
 **所有主流公开眼动数据集均禁止商业使用：**
